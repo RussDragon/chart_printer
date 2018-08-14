@@ -52,7 +52,7 @@ local bold_theme =
 local indent = 2
 
 --TODO: add error validations
-local make_cli_table_renderer
+local make_cli_chart
 do
   local center_with_spaces = function(str, len)
     if not str or not len then
@@ -78,10 +78,7 @@ do
       error('render_line: char and len must be passed')
     end
 
-    local str = ''
-    for i = 1, len do
-      str = str .. char
-    end
+    local str = char:rep(len)
 
     return str
   end
@@ -94,11 +91,24 @@ do
     local headers = chart.headers
     local sizes = chart.config.sizes
 
+    if #headers == 0 then
+      local topline = theme.ulCorner
+      for i = 1, chart.config.width do
+        local line = render_line(theme.horizontal, sizes[i])
+
+        local tinterchar = theme.dhorizontal
+        if i == chart.config.width then tinterchar = theme.urCorner end
+        topline = topline .. line .. tinterchar
+      end
+
+      return topline .. '\n'
+    end
+
     local topline = theme.ulCorner
     local midline = theme.vertical
     local botline = theme.rhvchar
 
-    for i = 1, #headers do
+    for i = 1, chart.config.width do
       local line = render_line(theme.horizontal, sizes[i])
 
       midline = midline .. center_with_spaces(headers[i], sizes[i]) ..
@@ -106,7 +116,7 @@ do
 
       local tinterchar = theme.dhorizontal
       local binterchar = theme.crosschar
-      if i == #headers then
+      if i == chart.config.width then
         tinterchar = theme.urCorner
         binterchar = theme.lhvchar
       end
@@ -163,7 +173,7 @@ do
 
     if #rows == 0 then
       rows[#rows + 1] = { }
-      for i = 1, #chart.headers do
+      for i = 1, chart.config.width do
         rows[#rows][i] = ''
       end
     end
@@ -192,7 +202,7 @@ do
       end
     end
 
-    return contentline .. '\n'
+    return contentline
   end
 
   local render = function(self)
@@ -206,13 +216,15 @@ do
     local config = self._chart.config
     local rows = self._chart.rows
 
+    if config.width == 0 then config.width = #args end
+
     rows[#rows + 1] = { }
-    for i = 1, #self._chart.headers do
+    for i = 1, config.width do
       local v = tostring(args[i])
 
       if v == 'nil' then v = '' end
 
-      if #v + indent > config.sizes[i] then
+      if not config.sizes[i] or #v + indent > config.sizes[i] then
         config.sizes[i] = #v + indent
       end
 
@@ -231,12 +243,12 @@ do
     local rows = self._chart.rows
 
     rows[id] = { }
-    for i = 1, #self._chart.headers do
+    for i = 1, config.width do
       local v = tostring(args[i])
 
       if v == 'nil' then v = '' end
 
-      if #v + indent > config.sizes[i] then
+      if not config.sizes[i] or #v + indent > config.sizes[i] then
         config.sizes[i] = #v + indent
       end
 
@@ -258,11 +270,8 @@ do
     end
   end
 
-  make_cli_table_renderer = function(...)
+  make_cli_chart = function(...)
     local args = { ... }
-    if #args == 0 then
-      error('make_cli_table_renderer: at least one header must exist')
-    end
 
     local chart = { }
     chart.headers = { }
@@ -270,8 +279,9 @@ do
 
     chart.config = { }
     chart.config.sizes = { }
+    chart.config.width = #args
 
-    for i = 1, #args do
+    for i = 1, chart.config.width do
       local v = tostring(args[i])
       chart.config.sizes[i] = #v + indent
       chart.headers[i] = v
@@ -292,4 +302,4 @@ end
 
 --------------------------------------------------------------------------------
 
-return make_cli_table_renderer
+return make_cli_chart
